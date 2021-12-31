@@ -1,8 +1,11 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, curly_braces_in_flow_control_structures
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,50 +24,62 @@ class _HomePageState extends State<HomePage> {
 
   bool stopData = false;
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   sensorData();
-  // }
-
   @override
-  void dispose() {
-    if (stopData) {
-      sensorData();
-    }
-    super.dispose();
+  void initState() {
+    super.initState();
+    startScan();
   }
 
+
+startScan() async {
+try {
+    String? address;
+    BluetoothConnection connection = await BluetoothConnection.toAddress(address);
+    print('Connected to the device');
+
+    connection.input!.listen((Uint8List data) {
+        print('Data incoming: ${ascii.decode(data)}');
+        connection.output.add(data); // Sending data
+
+        if (ascii.decode(data).contains('!')) {
+            connection.finish(); // Closing connection
+            print('Disconnecting by local host');
+        }
+    }).onDone(() {
+        print('Disconnected by remote request');
+    });
+}
+catch (exception) {
+    print('Cannot connect, exception occured');
+}
+}
+
   sensorData() {
-    listerners.add(
-    gyroscopeEvents.listen((GyroscopeEvent event) {
+    listerners.add(gyroscopeEvents.listen((GyroscopeEvent event) {
       setState(() {
         gyroscopeValues = [event.x, event.y];
       });
-      gyroscopeEvents.listen((event) { }).pause();
     }));
-    listerners.add(
-    accelerometerEvents.listen((AccelerometerEvent event) {
+    listerners.add(accelerometerEvents.listen((AccelerometerEvent event) {
       setState(() {
         accelerometerValues = [event.x, event.y];
       });
     }));
-     listerners.add(
-    userAccelerometerEvents.listen((UserAccelerometerEvent event) {
+    listerners
+        .add(userAccelerometerEvents.listen((UserAccelerometerEvent event) {
       setState(() {
         userAccelerometerValues = [event.x, event.y];
       });
     }));
-     listerners.add(
-    magnetometerEvents.listen((MagnetometerEvent event) {
+    listerners.add(magnetometerEvents.listen((MagnetometerEvent event) {
       setState(() {
         magnetometerValues = [event.x, event.y];
       });
     }));
   }
-  cancelSensorData(){
-    
-    if (listerners.isNotEmpty){
+
+  cancelSensorData() {
+    if (listerners.isNotEmpty) {
       for (var listerner in listerners) {
         listerner.cancel();
       }
@@ -78,10 +93,14 @@ class _HomePageState extends State<HomePage> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton.extended(
-              onPressed: () => sensorData(), label: const Text("Get Data")),
-          const SizedBox(height: 20),
-          FloatingActionButton.extended(
-              onPressed: () => cancelSensorData(), label: const Text("Stop Data")),
+              onPressed: () => setState(() {
+                    stopData = !stopData;
+                    if (stopData)
+                      sensorData();
+                    else
+                      cancelSensorData();
+                  }),
+              label: Text(stopData == false ? "Get Data" : "Stop Data")),
         ],
       ),
       appBar: AppBar(
